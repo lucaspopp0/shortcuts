@@ -36,6 +36,11 @@ git-prune() {
     fi
   done < <(printf '%s' "$BRANCHES_LIST")
 
+  if [[ "${#PRUNABLE[@]}" == 0 ]]; then
+    echo "No branches unchanged in the last ${PRUNE_DAYS}d"
+    return
+  fi
+
   # Use FZF to pick branches to prune
   TO_PRUNE=$(printf "%s\n" "${PRUNABLE[@]}" \
     | fzf \
@@ -50,7 +55,7 @@ git-prune() {
       --preview-window=wrap)
 
   if [[ -z "$TO_PRUNE" ]]; then
-    exit
+    return
   fi
 
   while IFS= read -r branch || [[ -n $branch ]]; do
