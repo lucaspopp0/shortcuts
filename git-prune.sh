@@ -57,5 +57,3 @@ git-prune() {
     git branch -D "${branch}"
   done < <(printf '%s' "$TO_PRUNE")
 }
-
-git-prune
