@@ -1,38 +1,51 @@
 #!/bin/bash
 
 git-prune() {
-  git fetch --all
-
   PRUNE_DAYS=30
+  
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -d|--days)
+        PRUNE_DAYS="$2"
+        shift # past flag
+        shift # past value
+        ;;
+      -*|--*)
+        echo "Unknown option $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  echo "Fetching remotes..."
+  
+  git fetch -q \
+    --all \
+    --prune
+
   PRUNE_BEFORE=$(date -Iseconds -v-${PRUNE_DAYS}d)
   
   # Use %(HEAD) and sed to exclude the mainline
   BRANCHES_LIST=$(git branch \
     --list \
-    --format='%(HEAD) %(refname:lstrip=2) %(upstream:lstrip=2)' \
+    --format='%(HEAD) %(refname:lstrip=2)' \
     | sed -nE 's/  (.+)/\1/gp')
+
+  echo "Searching for branches not touched in the last ${PRUNE_DAYS}d..."
 
   # Loop through all branches, to find branches which have
   # not been modified in the past 30d
   PRUNABLE=()
-  while IFS= read -r branchline || [[ -n $branchline ]]; do
-    local_ref="${branchline% *}"
-    remote_ref="${branchline#* }"
-
-    prune_ref="${remote_ref}"
-    if [[ -z "$prune_ref" ]]; then
-      prune_ref="${local_ref}"
-    fi
-
+  while IFS= read -r branch || [[ -n $brancbranchhline ]]; do
     LOG_OUT=$(git log \
       --oneline \
       -n 1 \
       --since="${PRUNE_BEFORE}" \
-      "${prune_ref}" \
+      "${branch}" \
       --)
 
     if [[ -z "$LOG_OUT" ]]; then
-      PRUNABLE+=("${local_ref}")
+      PRUNABLE+=("${branch}")
     fi
   done < <(printf '%s' "$BRANCHES_LIST")
 
@@ -41,24 +54,46 @@ git-prune() {
     return
   fi
 
+  HEADER_LINES=(\
+    "Press ctrl-c to cancel" \
+    "Press ctrl-a to select all" \
+    "Press tab to select more than one" \
+  )
+
+  FZF_ITEMS=("${HEADER_LINES[@]}" "${PRUNABLE[@]}")
+
   # Use FZF to pick branches to prune
-  TO_PRUNE=$(printf "%s\n" "${PRUNABLE[@]}" \
+  TO_PRUNE=$(printf "%s\n" "${FZF_ITEMS[@]}" \
     | fzf \
-      -m \
-      --layout=reverse \
+      --multi \
+      --bind ctrl-a:select-all \
       --border=rounded \
-      --header="Branches to prune" \
+      --header-lines="${#HEADER_LINES[@]}" \
       --header-first \
-      --prompt="Use tab to select more than one " \
+      --prompt="Branches to prune: " \
       --preview='echo "{} commit history"; echo; git log --no-patch --format="format:%cr (%aN)%n%s%n" {}' \
       --preview-label='Latest Commit' \
       --preview-window=wrap)
 
   if [[ -z "$TO_PRUNE" ]]; then
+    echo "Operation cancelled"
     return
   fi
 
+  PRUNE_ARR=()
   while IFS= read -r branch || [[ -n $branch ]]; do
-    git branch -D "${branch}"
+    PRUNE_ARR+=(${branch})
   done < <(printf '%s' "$TO_PRUNE")
+
+  echo "Cleaning up ${#PRUNE_ARR[@]} branches..."
+  for branch in "${PRUNE_ARR[@]}"; do
+    git branch -D "${branch}"
+  done
 }
+
+# Configure bash completion
+if which complete 2>&1 > /dev/null; then
+  complete \
+    -W '-d --days' \
+    git-prune
+fi
