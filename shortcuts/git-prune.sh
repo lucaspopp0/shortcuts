@@ -101,6 +101,7 @@ git-prune() {
 
   # Use FZF to pick branches to prune
   TO_PRUNE=$(printf "%s\n" "${FZF_ITEMS[@]}" \
+    | sort -ru \
     | fzf \
       --multi \
       --bind ctrl-a:select-all \
@@ -108,8 +109,12 @@ git-prune() {
       --header-lines="${#HEADER_LINES[@]}" \
       --header-first \
       --prompt="Branches to prune: " \
-      --preview='echo "{} commit history"; echo; git log --no-patch --format="format:%cr (%aN)%n%s%n" {}' \
-      --preview-label='Latest Commit' \
+      --preview='export BRANCH={};
+                  export BRANCH="${BRANCH% \(*}";
+                  echo -e "\033[1m$BRANCH\033[0m";
+                  echo; 
+                  git log --no-patch --format="format:%cr (%aN)%n%s%n" "${BRANCH}" --' \
+      --preview-label='Commit History' \
       --preview-window=wrap)
 
   if [[ -z "$TO_PRUNE" ]]; then
