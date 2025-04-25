@@ -129,6 +129,6 @@ git-prune() {
 # Configure bash completion
 if which complete 2>&1 > /dev/null; then
   complete \
-    -W '-d --days' \
+    -W '-h --help -d --days' \
     git-prune
 fi
