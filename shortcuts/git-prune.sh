@@ -75,6 +75,10 @@ git-prune() {
   done < <(printf '%s' "$BRANCHES_LIST")
 
   echo "Searching for branches with deleted upstreams..."
+
+  prunable_contains() {
+    printf '%s\0' "${PRUNABLE[@]}" | grep -F -x -z -- "$1"
+  }
   
   # Add branches with deleted upstreams to the list
   UPSTREAMS_DELETED=$(git for-each-ref \
@@ -83,7 +87,9 @@ git-prune() {
     | sed -nE 's/(.+) \[gone\]/\1/p')
 
   while IFS= read -r branch || [[ -n $brancbranchhline ]]; do
-    PRUNABLE+=("${branch} (upstream gone)")
+    if [[ -z $(prunable_contains "$branch (stale)") ]]; then
+      PRUNABLE+=("${branch} (upstream gone)")
+    fi
   done < <(printf '%s' "$UPSTREAMS_DELETED")
 
   if [[ "${#PRUNABLE[@]}" == 0 ]]; then
@@ -97,11 +103,11 @@ git-prune() {
     "Press tab to select more than one" \
   )
 
-  FZF_ITEMS=("${HEADER_LINES[@]}" "${PRUNABLE[@]}")
+  FZF_HEADER=$(printf "%s\n" "${HEADER_LINES[@]}")
+  FZF_PRUNABLES=$(printf "%s\n" "${PRUNABLE[@]}" | sort -r)
 
   # Use FZF to pick branches to prune
-  TO_PRUNE=$(printf "%s\n" "${FZF_ITEMS[@]}" \
-    | sort -ru \
+  TO_PRUNE=$(printf '%s\n%s\n' "$FZF_HEADER" "$FZF_PRUNABLES" \
     | fzf \
       --multi \
       --bind ctrl-a:select-all \
