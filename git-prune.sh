@@ -45,12 +45,24 @@ git-prune() {
       --)
 
     if [[ -z "$LOG_OUT" ]]; then
-      PRUNABLE+=("${branch}")
+      PRUNABLE+=("${branch} (stale)")
     fi
   done < <(printf '%s' "$BRANCHES_LIST")
 
+  echo "Searching for branches with deleted upstreams..."
+  
+  # Add branches with deleted upstreams to the list
+  UPSTREAMS_DELETED=$(git for-each-ref \
+    --format '%(refname:short) %(upstream:track)' \
+    refs/heads \
+    | sed -nE 's/(.+) \[gone\]/\1/p')
+
+  while IFS= read -r branch || [[ -n $brancbranchhline ]]; do
+    PRUNABLE+=("${branch} (upstream gone)")
+  done < <(printf '%s' "$UPSTREAMS_DELETED")
+
   if [[ "${#PRUNABLE[@]}" == 0 ]]; then
-    echo "No branches unchanged in the last ${PRUNE_DAYS}d"
+    echo "No branches to prune"
     return
   fi
 
@@ -82,7 +94,7 @@ git-prune() {
 
   PRUNE_ARR=()
   while IFS= read -r branch || [[ -n $branch ]]; do
-    PRUNE_ARR+=(${branch})
+    PRUNE_ARR+=("${branch% \(*}")
   done < <(printf '%s' "$TO_PRUNE")
 
   echo "Cleaning up ${#PRUNE_ARR[@]} branches..."
