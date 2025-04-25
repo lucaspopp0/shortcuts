@@ -1,10 +1,15 @@
 #!/bin/bash
 
 git-prune() {
+  HELP=false
   PRUNE_DAYS=30
   
   while [[ $# -gt 0 ]]; do
     case $1 in
+      -h|--help)
+        HELP=true
+        shift # past flag
+        ;;
       -d|--days)
         PRUNE_DAYS="$2"
         shift # past flag
@@ -16,6 +21,24 @@ git-prune() {
         ;;
     esac
   done
+
+  if [[ "$HELP" == "true" ]]; then
+    echo ""
+    printf '  \033[1m%s\033[0m\n' "git-prune"
+    echo ""
+    printf '    %s\n' "Prune branches which had their upstream deleted, or have"
+    printf '    %s\n' "not been touched in a while"
+    echo ""
+    printf '  \033[1m%s\033[0m %s\n' "Usage:" "git-prune [options]"
+    echo ""
+    printf '  \033[1m%s\033[0m\n' "Options:"
+    echo ""
+    printf '    %s\n' "-d, --days    Threshold for how many days of inactivity"
+    printf '    %s\n' "              before a branch becomes \"stale\""
+    printf '    %s\n' "              (default: 30)"
+    echo ""
+    return
+  fi
 
   echo "Fetching remotes..."
   
