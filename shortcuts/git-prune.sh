@@ -37,6 +37,8 @@ git-prune() {
     printf '    %s\n' "              before a branch becomes \"stale\""
     printf '    %s\n' "              (default: 30)"
     echo ""
+    printf '    %s\n' "-h, --help    Display help text"
+    echo ""
     return
   fi
 
